@@ -1,0 +1,47 @@
+# Swift Package Manager
+.build/
+Packages/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserdatad/
+DerivedData/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+
+# Runtime files
+.env
+config.json
+
+# Test artifacts
+.coverage
+coverage.xml 

@@ -1,0 +1,13 @@
+github:
+  history_count: 30
+  api:
+    base_url: 'https://api.github.com'
+    organization: 'yourorg'
+    concurrency: 15
+  services:
+
+kubernetes:
+  service:
+    selector:
+      - role: [stable]
+
