@@ -71,6 +71,10 @@ jobs:
           swift build -c release --arch arm64
           swift test ${{ matrix.test-args }}
 
+      - name: Install linker dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libssl-dev libssh2-1-dev
+
       - name: Build & Test (linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
