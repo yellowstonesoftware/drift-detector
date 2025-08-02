@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import NIO
 
 class DriftAnalyzer {
     private let contexts: [ContextAlias]
@@ -7,6 +8,7 @@ class DriftAnalyzer {
     private let githubToken: String
     private let configPath: String
     private let logger: Logger
+    private let eventLoopGroup: EventLoopGroup
     
     enum DriftAnalyzerError: Error, LocalizedError {
         case configurationError(String)
@@ -26,12 +28,20 @@ class DriftAnalyzer {
         }
     }
     
-    init(contexts: [ContextAlias], namespace: String, githubToken: String, configPath: String, logLevel: Logger.Level) {
+    init(
+        contexts: [ContextAlias], 
+        namespace: String, 
+        githubToken: String, 
+        configPath: String, 
+        logLevel: Logger.Level, 
+        eventLoopGroup: EventLoopGroup
+    ) {
         self.contexts = contexts
         self.namespace = namespace
         self.githubToken = githubToken
         self.configPath = configPath
-        
+        self.eventLoopGroup = eventLoopGroup
+
         var logger = Logger(label: "drift-detector")
         logger.logLevel = logLevel
         self.logger = logger
@@ -62,6 +72,7 @@ class DriftAnalyzer {
         var deploymentsByContext: [String: [DeploymentInfo]] = [:]
         
         let targetNamespace = namespace  // Capture as local constant
+        let eventLoopGroup = self.eventLoopGroup
         await withTaskGroup(of: (String, [DeploymentInfo]).self) { taskGroup in
             for contextAlias in contexts {
                 var logger = self.logger // make a mutable copy so we don't capture self in the closure
@@ -84,7 +95,8 @@ class DriftAnalyzer {
                             namespace: targetNamespace,
                             appConfig: configuration.kubernetes,
                             clientConfig: clientConfig,
-                            logger: logger
+                            logger: logger,
+                            eventLoopGroup: eventLoopGroup
                         )
                         return (contextAlias.alias, deployments)
                     } catch {
@@ -134,7 +146,7 @@ class DriftAnalyzer {
                             let releases = try await githubClient.getReleases(for: repository, config: configuration.github)
                             return (appName, releases)
                         } catch {
-                            logger.warning("Failed to get releases for \(repository): \(error.localizedDescription)")
+                            logger.warning("Failed to get releases for \(repository): \(error)")
                             return (appName, [])
                         }
                     }

@@ -1,8 +1,13 @@
-import AsyncHTTPClient
 import Foundation
+#if canImport(FoundationNetworking)   
+import FoundationNetworking 
+#endif
 import Logging
 import SwiftkubeModel  
+import NIO
 import NIOHTTP1
+import AsyncHTTPClient
+import NIOSSL
 
 enum KubernetesAPIError: Error {
     case invalidURL
@@ -22,7 +27,8 @@ func getDeployments(
     namespace: String, 
     appConfig: Configuration.KubernetesConfig,
     clientConfig: KubernetesClientConfig,
-    logger: Logger
+    logger: Logger,
+    eventLoopGroup: EventLoopGroup
 ) async throws -> [DeploymentInfo] {
    do {
       let labelSelectors = appConfig.service.selector.flatMap { 
@@ -35,7 +41,8 @@ func getDeployments(
       let deployments = try await listDeployments(
         clientConfig: clientConfig,
         namespace: namespace,
-        selectors: labelSelectors
+        selectors: labelSelectors,
+        eventLoopGroup: eventLoopGroup
       )
 
       let deploymentInfos = deployments.items.map { deployment in
@@ -59,8 +66,20 @@ func getDeployments(
 internal func listDeployments(
     clientConfig: KubernetesClientConfig,
     namespace: String,
-    selectors: [ListOption]
+    selectors: [ListOption],
+    eventLoopGroup: EventLoopGroup
 ) async throws -> SwiftkubeModel.apps.v1.DeploymentList {
+    var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+    tlsConfiguration.certificateVerification = clientConfig.insecureSkipTLSVerify ? .none : .fullVerification
+
+    let client = HTTPClient(
+        eventLoopGroupProvider: .shared(eventLoopGroup),
+        configuration: HTTPClient.Configuration(
+            tlsConfiguration: tlsConfiguration,
+            redirectConfiguration: .follow(max: 5, allowCycles: false)  
+        )
+    )
+    
     let path = "/apis/apps/v1/namespaces/\(namespace)/deployments"
     let queryItemsForSelectors = selectors
         .map { s in [s.name: s.value] }
@@ -77,55 +96,33 @@ internal func listDeployments(
     }
     
     // Create the request immutably
-    var request = URLRequest(url: url)
-    request.httpMethod = "GET"
-    request.setValue(clientConfig.authentication.authorizationHeaderValue(), forHTTPHeaderField: "Authorization")
-    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    var request = HTTPClientRequest(url: url.absoluteString)
+    request.method = .GET
+    request.headers.add(name: "User-Agent", value: "SwiftAsyncHTTPClient/1.0")
+    clientConfig.authentication.authorizationHeaderValue().map { request.headers.add(name: "Authorization", value: $0) }
+    request.headers.add(name: "Accept", value: "application/json")
     
-    // Perform the network request
-    let session = clientConfig.insecureSkipTLSVerify ?  
-        URLSession(
-            configuration: .default,
-            delegate: InsecureURLSessionDelegate(),
-            delegateQueue: nil
-        ) : .shared
-
-    let (data, response) = try await session.data(for: request)
+    let response = try await client.execute(request, timeout: .seconds(30))
     
-    // Validate the response
-    guard let httpResponse = response as? HTTPURLResponse,
-          httpResponse.statusCode == 200 else {
-        throw KubernetesAPIError.badResponse(statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
+    // Check the response status
+    guard response.status == .ok else {
+        throw URLError(.badServerResponse)
     }
     
+    // Collect the response body as a string
+    var body = [UInt8]()
+    for try await buffer in response.body {
+        body.append(contentsOf: buffer.readableBytesView)
+    }    
     // Decode the response
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .iso8601  // Kubernetes uses ISO 8601 for dates
     
     do {
-        let deploymentList = try decoder.decode(SwiftkubeModel.apps.v1.DeploymentList.self, from: data)
+        let deploymentList = try decoder.decode(SwiftkubeModel.apps.v1.DeploymentList.self, from: Data(body))
+        try await client.shutdown().get()
         return deploymentList
     } catch {
         throw KubernetesAPIError.decodingError(error)
-    }
-}
-
-private final class InsecureURLSessionDelegate: NSObject, URLSessionDelegate {
-    func urlSession(
-        _ session: URLSession,
-        didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
-    ) {
-        // Check if the challenge is for server trust (TLS)
-        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let serverTrust = challenge.protectionSpace.serverTrust else {
-            // Fall back to default handling for other challenges
-            completionHandler(.performDefaultHandling, nil)
-            return
-        }
-        
-        // Blindly trust the server certificate (insecure)
-        let credential = URLCredential(trust: serverTrust)
-        completionHandler(.useCredential, credential)
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import ArgumentParser
 import Logging
 import SemVer
+import NIO
 
 @main
 struct DriftDetector: AsyncParsableCommand {
@@ -91,15 +92,18 @@ struct DriftDetector: AsyncParsableCommand {
         let githubToken = self.githubToken ?? ProcessInfo.processInfo.environment["GITHUB_TOKEN"]!
         
         do {
+            let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 2)
             let driftAnalyzer = DriftAnalyzer(
                 contexts: contextAliases,
                 namespace: namespace,
                 githubToken: githubToken,
                 configPath: config,
-                logLevel: setLogLevel(from: logLevel)
+                logLevel: setLogLevel(from: logLevel),
+                eventLoopGroup: eventLoopGroup
             )
             
             try await driftAnalyzer.analyze()
+            try await eventLoopGroup.shutdownGracefully()
         } catch {
             print("Error: \(error.localizedDescription)")
             throw ExitCode.failure

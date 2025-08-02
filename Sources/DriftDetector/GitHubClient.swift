@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)   
+import FoundationNetworking 
+#endif
 import SemVer
 import Logging
 
@@ -12,7 +15,6 @@ struct GitHubTag: Sendable {
     let tagVersion: SemVer.Version
     let date: Date
 }
-
 
 final class GitHubClient: Sendable {
     private let token: String
@@ -160,7 +162,6 @@ final class GitHubClient: Sendable {
             if !z.contains(where: { $0.tagVersion == t.tagVersion }) { 
                 z.append(t)
             }
-
         }
 
         return tagsDeduped
@@ -170,7 +171,7 @@ final class GitHubClient: Sendable {
         var request = request // shadow and make a mutable copy
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.setValue("DriftDetector/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("DriftDetector/\(DriftDetector.configuration.version)", forHTTPHeaderField: "User-Agent")
         
         do {
             let (data, response) = try await session.data(for: request)

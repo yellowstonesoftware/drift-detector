@@ -74,9 +74,7 @@ class VersionLogic {
         var deployedSemVerWithoutPrerelease: SemVer.Version = deployedSemVer
         deployedSemVerWithoutPrerelease.prerelease = []
 
-        let prefixes = releases.prefix(while: { $0.tagVersion > deployedSemVerWithoutPrerelease })
         let count: Int = releases.prefix(while: { $0.tagVersion > deployedSemVerWithoutPrerelease }).count
-
         if (count == releases.count && releases.last?.tagVersion != nil && 
             releases.last!.tagVersion > deployedSemVerWithoutPrerelease) {
                 return Int.max
