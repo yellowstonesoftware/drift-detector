@@ -192,8 +192,6 @@ extension KubernetesClientConfig {
 			)
 		}
 	}
-
-	
 }
 
 private extension Cluster {

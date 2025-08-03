@@ -87,7 +87,6 @@ final class GitHubClient: Sendable {
         
         let request = URLRequest(url: requestURL)
         let releases: [GitHubReleaseResponse] = try await executeGitHubRequest(request: request)
-        print("releases: \(releases.count) \(repository)")
         
         return releases.map { release in
             GitHubRelease(
