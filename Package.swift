@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
-        .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
+        .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.2"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.4.3"),
         .package(url: "https://github.com/swiftkube/model.git", from: "0.18.0"),
         .package(url: "https://github.com/sersoft-gmbh/semver.git", from: "5.3.0"),
