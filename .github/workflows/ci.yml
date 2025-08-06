@@ -4,7 +4,10 @@ on:
   pull_request:
   push:
     branches: [main]
-
+    paths-ignore:
+      - 'README.md'  # Ignore changes to README.md
+      - 'config.yaml'
+      
 jobs:
   build:
     name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
