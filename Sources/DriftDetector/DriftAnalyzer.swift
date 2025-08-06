@@ -97,7 +97,9 @@ class DriftAnalyzer {
                             clientConfig: clientConfig,
                             logger: logger,
                             eventLoopGroup: eventLoopGroup
-                        )
+                        ).filter { deployment in
+                            configuration.kubernetes.service.filter?.contains(deployment.appName) ?? true
+                        }
                         return (contextAlias.alias, deployments)
                     } catch {
                         // Return empty array on error, will be logged when collecting results

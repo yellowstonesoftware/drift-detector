@@ -33,6 +33,7 @@ struct Configuration: Codable {
 
         struct ServiceConfig: Codable {
             let selector: [[String: [String]]]
+            let filter: Set<String>?
         }
     }
 }

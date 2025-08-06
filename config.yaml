@@ -10,4 +10,7 @@ kubernetes:
   service:
     selector:
       - role: [stable]
+    filter:
+      # - service-a
+      # - service-b
 
