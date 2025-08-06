@@ -53,7 +53,7 @@ public enum KubernetesClientAuthentication: Sendable {
 public struct KubernetesClientConfig: Sendable {
 
 	/// The URL for the kuberentes API server.
-	public let masterURL: URL
+	public let apiURL: URL
 	/// The namespace for the current client context.
 	public let namespace: String
 	/// The ``KubernetesClientAuthentication`` scheme.
@@ -73,7 +73,7 @@ public struct KubernetesClientConfig: Sendable {
 	public let gzip: Bool
 
 	public init(
-		masterURL: URL,
+		apiURL: URL,
 		namespace: String,
 		authentication: KubernetesClientAuthentication,
 		trustRoots: NIOSSLTrustRoots?,
@@ -83,7 +83,7 @@ public struct KubernetesClientConfig: Sendable {
 		proxyURL: URL? = nil,
 		gzip: Bool = false
 	) {
-		self.masterURL = masterURL
+		self.apiURL = apiURL
 		self.namespace = namespace
 		self.authentication = authentication
 		self.trustRoots = trustRoots
@@ -163,7 +163,7 @@ extension KubernetesClientConfig {
 				return nil
 			}
 
-			guard let masterURL = URL(string: cluster.server) else {
+			guard let apiURL = URL(string: cluster.server) else {
 				return nil
 			}
 
@@ -181,11 +181,11 @@ extension KubernetesClientConfig {
 			}
 
 			return KubernetesClientConfig(
-				masterURL: masterURL,
+				apiURL: apiURL,
 				namespace: context.namespace ?? "default",
 				authentication: authentication,
 				trustRoots: cluster.trustRoots(logger: logger),
-				insecureSkipTLSVerify: cluster.insecureSkipTLSVerify ?? true,
+				insecureSkipTLSVerify: cluster.insecureSkipTLSVerify ?? false,
 				timeout: timeout,
 				redirectConfiguration: redirectConfiguration,
 				proxyURL: cluster.proxyURL.flatMap { URL(string: $0) }
