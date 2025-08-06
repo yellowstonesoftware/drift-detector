@@ -11,6 +11,7 @@ import NIOSSL
 
 enum KubernetesAPIError: Error {
     case invalidURL
+    case connectionError(Error)
     case badResponse(statusCode: Int)
     case decodingError(Error)
 }
@@ -42,7 +43,8 @@ func getDeployments(
         clientConfig: clientConfig,
         namespace: namespace,
         selectors: labelSelectors,
-        eventLoopGroup: eventLoopGroup
+        eventLoopGroup: eventLoopGroup,
+        logger: logger
       )
 
       let deploymentInfos = deployments.items.map { deployment in
@@ -67,25 +69,15 @@ internal func listDeployments(
     clientConfig: KubernetesClientConfig,
     namespace: String,
     selectors: [ListOption],
-    eventLoopGroup: EventLoopGroup
+    eventLoopGroup: EventLoopGroup,
+    logger: Logger
 ) async throws -> SwiftkubeModel.apps.v1.DeploymentList {
-    var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
-    tlsConfiguration.certificateVerification = clientConfig.insecureSkipTLSVerify ? .none : .fullVerification
-
-    let client = HTTPClient(
-        eventLoopGroupProvider: .shared(eventLoopGroup),
-        configuration: HTTPClient.Configuration(
-            tlsConfiguration: tlsConfiguration,
-            redirectConfiguration: .follow(max: 5, allowCycles: false)  
-        )
-    )
-    
     let path = "/apis/apps/v1/namespaces/\(namespace)/deployments"
     let queryItemsForSelectors = selectors
         .map { s in [s.name: s.value] }
         .flatMap { dict in dict.map { URLQueryItem(name: $0.key, value: $0.value) } }
         
-    guard var urlComponents = URLComponents(url: clientConfig.masterURL, resolvingAgainstBaseURL: false) else {
+    guard var urlComponents = URLComponents(url: clientConfig.apiURL, resolvingAgainstBaseURL: false) else {
         throw KubernetesAPIError.invalidURL
     }
     urlComponents.path = path.starts(with: "/") ? path : "/\(path)"
@@ -98,31 +90,49 @@ internal func listDeployments(
     // Create the request immutably
     var request = HTTPClientRequest(url: url.absoluteString)
     request.method = .GET
-    request.headers.add(name: "User-Agent", value: "SwiftAsyncHTTPClient/1.0")
+    request.headers.add(name: "User-Agent", value: "DriftDetector/1.0")
     clientConfig.authentication.authorizationHeaderValue().map { request.headers.add(name: "Authorization", value: $0) }
     request.headers.add(name: "Accept", value: "application/json")
     
-    let response = try await client.execute(request, timeout: .seconds(30))
+    var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+    clientConfig.trustRoots.map { tlsConfiguration.trustRoots = $0}
+    tlsConfiguration.certificateVerification = clientConfig.insecureSkipTLSVerify ? .none : .fullVerification
+    logger.debug("tlsConfiguration: \(tlsConfiguration)")
+
+    let client = HTTPClient(
+        eventLoopGroupProvider: .shared(eventLoopGroup),
+        configuration: HTTPClient.Configuration(
+            tlsConfiguration: tlsConfiguration,
+            redirectConfiguration: .follow(max: 5, allowCycles: false)  
+        )
+    )
     
-    // Check the response status
-    guard response.status == .ok else {
-        throw URLError(.badServerResponse)
+    var body = [UInt8]()
+    do {
+        let response = try await client.execute(request, timeout: .seconds(30))
+        guard response.status == .ok else {
+            throw URLError(.badServerResponse)
+        }
+        
+        for try await buffer in response.body {
+            body.append(contentsOf: buffer.readableBytesView)
+        }    
+    }
+    catch {
+        logger.error("Error listing deployments: \(error)")
+        try await client.shutdown().get()
+        throw KubernetesAPIError.connectionError(error)
     }
     
-    // Collect the response body as a string
-    var body = [UInt8]()
-    for try await buffer in response.body {
-        body.append(contentsOf: buffer.readableBytesView)
-    }    
-    // Decode the response
-    let decoder = JSONDecoder()
-    decoder.dateDecodingStrategy = .iso8601  // Kubernetes uses ISO 8601 for dates
-    
     do {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601  // Kubernetes uses ISO 8601 for dates
+
         let deploymentList = try decoder.decode(SwiftkubeModel.apps.v1.DeploymentList.self, from: Data(body))
         try await client.shutdown().get()
         return deploymentList
     } catch {
+        try await client.shutdown().get()
         throw KubernetesAPIError.decodingError(error)
     }
 }
