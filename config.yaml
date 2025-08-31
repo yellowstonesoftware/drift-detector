@@ -7,6 +7,8 @@ github:
   services:
 
 kubernetes:
+  argo:
+    selector: 
   service:
     selector:
       - role: [stable]
