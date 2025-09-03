@@ -1,5 +1,6 @@
 import Foundation
 import Yams
+import Logging
 
 struct Configuration: Codable {
   let github: GitHubConfig
@@ -56,7 +57,8 @@ extension Configuration.GitHubConfig.ApiConfig {
   }
 }
 
-class ConfigurationManager {
+public enum ConfigurationManager {
+  private static let logger = LoggingKit.logger()
 
   enum ConfigurationError: Error, LocalizedError {
     case fileNotFound(String)
@@ -84,18 +86,22 @@ class ConfigurationManager {
     }
   }
 
-  static func loadConfiguration(from path: String) throws -> Configuration {
-    let fileURL = URL(fileURLWithPath: path)
-
-    guard FileManager.default.fileExists(atPath: path) else {
-      throw ConfigurationError.fileNotFound(path)
+  static func loadConfiguration(from path: String?) throws -> Configuration {
+    let xdgConfig = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"].map { "\($0)/drift-detector/config.yaml" }
+    let macConfig = ProcessInfo.processInfo.environment["HOME"].map { "\($0)/.config/drift-detector/config.yaml" }
+    guard let configPath: String = path ?? xdgConfig ?? macConfig else {
+      throw ConfigurationError.fileNotFound(path ?? "~/.config/drift-detector/config.yaml")
+    }
+    guard FileManager.default.fileExists(atPath: configPath) else {
+      throw ConfigurationError.fileNotFound(configPath)
     }
 
+    Self.logger.info("Loading configuration from \(configPath)")
+    let fileURL = URL(fileURLWithPath: configPath)
     do {
       let yamlContent = try String(contentsOf: fileURL, encoding: .utf8)
       let configuration = try YAMLDecoder().decode(Configuration.self, from: yamlContent)
 
-      // Validate required fields
       if configuration.github.api.baseUrl.isEmpty {
         throw ConfigurationError.missingBaseUrl
       }
