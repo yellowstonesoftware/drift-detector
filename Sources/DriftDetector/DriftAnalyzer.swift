@@ -6,7 +6,7 @@ class DriftAnalyzer {
     private let contexts: [ContextAlias]
     private let namespace: String
     private let githubToken: String
-    private let configPath: String
+    private let configPath: String?
     private let logger: Logger
     private let eventLoopGroup: EventLoopGroup
     
@@ -32,8 +32,7 @@ class DriftAnalyzer {
         contexts: [ContextAlias], 
         namespace: String, 
         githubToken: String, 
-        configPath: String, 
-        logLevel: Logger.Level, 
+        configPath: String?,
         eventLoopGroup: EventLoopGroup
     ) {
         self.contexts = contexts
@@ -41,10 +40,7 @@ class DriftAnalyzer {
         self.githubToken = githubToken
         self.configPath = configPath
         self.eventLoopGroup = eventLoopGroup
-
-        var logger = Logger(label: "drift-detector")
-        logger.logLevel = logLevel
-        self.logger = logger
+        self.logger = LoggingKit.logger()
     }
     
     func analyze() async throws {
@@ -53,7 +49,6 @@ class DriftAnalyzer {
         logger.info("Namespace: \(namespace)")
         
         // Load YAML configuration file
-        logger.info("Loading configuration from \(configPath)")
         let configuration: Configuration
         do {
             configuration = try ConfigurationManager.loadConfiguration(from: configPath)
@@ -65,7 +60,7 @@ class DriftAnalyzer {
         let serviceMappings = ConfigurationManager.parseServiceMappings(from: configuration)
         logger.debug("Loaded \(serviceMappings.count) service mappings")
         
-        let githubClient = GitHubClient(token: githubToken, config: configuration.github, logger: logger)
+        let githubClient = GitHubClient(token: githubToken, config: configuration.github)
         logger.debug("Initialized GitHub client with base URL: \(configuration.github.api.baseUrl)")
         
         logger.debug("Querying Kubernetes deployments concurrently...")
@@ -95,7 +90,6 @@ class DriftAnalyzer {
                             namespace: targetNamespace,
                             appConfig: configuration.kubernetes,
                             clientConfig: clientConfig,
-                            logger: logger,
                             eventLoopGroup: eventLoopGroup
                         ).filter { deployment in
                             configuration.kubernetes.service.filter?.contains(deployment.appName) ?? true

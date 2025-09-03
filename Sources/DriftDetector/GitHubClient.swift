@@ -54,11 +54,11 @@ final class GitHubClient: Sendable {
         // }
     }
     
-    init(token: String, config: Configuration.GitHubConfig, logger: Logger) {
+    init(token: String, config: Configuration.GitHubConfig) {
         self.token = token
         self.config = config
         self.session = URLSession.shared
-        self.logger = logger
+        self.logger = LoggingKit.logger()
     }
     
     func getReleases(for repository: String, config: Configuration.GitHubConfig) async throws -> [GitHubRelease] {

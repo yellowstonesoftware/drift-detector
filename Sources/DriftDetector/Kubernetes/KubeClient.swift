@@ -30,9 +30,9 @@ func getDeployments(
   namespace: String,
   appConfig: Configuration.KubernetesConfig,
   clientConfig: KubernetesClientConfig,
-  logger: Logger,
   eventLoopGroup: EventLoopGroup
 ) async throws -> [DeploymentInfo] {
+  let logger = LoggingKit.logger()
   do {
     let labelSelectors = appConfig.service.selector.flatMap {
       $0.map { key, values in

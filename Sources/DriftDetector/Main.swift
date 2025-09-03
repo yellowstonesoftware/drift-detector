@@ -34,9 +34,9 @@ struct DriftDetector: AsyncParsableCommand {
 
   @Option(
     name: .long,
-    help: "Path to drift_detector YAML configuration file (default: config.yaml)"
+    help: "Path to drift_detector YAML configuration file (default: $XDG_CONFIG_HOME/drift-detector/config.yaml or $HOME/.config/drift-detector/config.yaml)"
   )
-  var config: String = "config.yaml"
+  var config: String?
 
   @Option(
     name: .long,
@@ -87,6 +87,7 @@ struct DriftDetector: AsyncParsableCommand {
   }
 
   mutating func run() async throws {
+    LoggingKit.bootstrap(level: setLogLevel(from: logLevel))
     let contextAliases = context.map { contextString in
       let components = contextString.split(separator: "=", maxSplits: 1)
       let contextName = components[0].trimmingCharacters(in: .whitespaces)
@@ -104,7 +105,6 @@ struct DriftDetector: AsyncParsableCommand {
         namespace: namespace,
         githubToken: githubToken,
         configPath: config,
-        logLevel: setLogLevel(from: logLevel),
         eventLoopGroup: eventLoopGroup
       )
 
