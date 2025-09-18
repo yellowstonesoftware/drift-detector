@@ -5,6 +5,13 @@ struct AppDriftInfo {
     let appName: String
     let deployments: [String: DeploymentVersionInfo] // Context alias -> deployment info
     let latestRelease: GitHubRelease?
+    var maxDriftCount: Int {
+      deployments
+        .values
+        .reduce(0) { t, z in
+          max(z.releasesSinceDeployment ?? 0, t)
+        }
+    }
     
     struct DeploymentVersionInfo {
         let version: String

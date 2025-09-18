@@ -38,6 +38,9 @@ struct DriftDetector: AsyncParsableCommand {
   )
   var config: String?
 
+  @Flag(help: "sort output by drift count rather than alphabetically")
+  var sortByDrift: Bool = false
+
   @Option(
     name: .long,
     help: "Logging level (default: info)"
@@ -105,6 +108,7 @@ struct DriftDetector: AsyncParsableCommand {
         namespace: namespace,
         githubToken: githubToken,
         configPath: config,
+        sortOrder: sortByDrift ? .byDriftCount : .byServiceName,
         eventLoopGroup: eventLoopGroup
       )
 
@@ -149,4 +153,9 @@ struct RuntimeError: Error, LocalizedError {
   var errorDescription: String? {
     return message
   }
+}
+
+enum SortOrder {
+  case byServiceName
+  case byDriftCount
 }

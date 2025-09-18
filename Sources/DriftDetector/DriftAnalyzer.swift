@@ -7,6 +7,7 @@ class DriftAnalyzer {
     private let namespace: String
     private let githubToken: String
     private let configPath: String?
+    private let sortOrder: SortOrder
     private let logger: Logger
     private let eventLoopGroup: EventLoopGroup
     
@@ -33,12 +34,14 @@ class DriftAnalyzer {
         namespace: String, 
         githubToken: String, 
         configPath: String?,
+        sortOrder: SortOrder,
         eventLoopGroup: EventLoopGroup
     ) {
         self.contexts = contexts
         self.namespace = namespace
         self.githubToken = githubToken
         self.configPath = configPath
+        self.sortOrder = sortOrder
         self.eventLoopGroup = eventLoopGroup
         self.logger = LoggingKit.logger()
     }
@@ -162,8 +165,14 @@ class DriftAnalyzer {
             serviceMappings: serviceMappings,
             configuration: configuration
         )
+        let sortedAppDriftInfos = switch sortOrder {
+          case .byDriftCount:
+            appDriftInfos.sorted(by: { lhs, rhs in lhs.maxDriftCount > rhs.maxDriftCount })
+          case .byServiceName:
+            appDriftInfos
+        }
         
-        displayResults(appDriftInfos: appDriftInfos)
+        displayResults(appDriftInfos: sortedAppDriftInfos)
     }
     
     private func displayResults(appDriftInfos: [AppDriftInfo]) {
