@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftkube/model.git",
       "state" : {
-        "revision" : "883df816465997f8f523d07702af16da4e4614c3",
-        "version" : "0.18.0"
+        "revision" : "e2b9c5606b454b1f2e273f57bad535266cd87e2d",
+        "version" : "0.19.0"
       }
     },
     {
