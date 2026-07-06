@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sersoft-gmbh/semver.git",
       "state" : {
-        "revision" : "09f0e4b5ad1fc011c1fe9eb84fddf6fb367b9715",
-        "version" : "5.4.0"
+        "revision" : "e6f0d2ee46e24af6a6cee91afcf44018de48de69",
+        "version" : "5.5.0"
       }
     },
     {
